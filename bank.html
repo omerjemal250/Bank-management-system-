@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bank Management System</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,sans-serif;
+    background:#f4f7fc;
+}
+
+.header{
+    background:#0d6efd;
+    color:white;
+    text-align:center;
+    padding:20px;
+}
+
+.container{
+    width:95%;
+    max-width:1200px;
+    margin:auto;
+    padding:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    margin-bottom:20px;
+    border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+.row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+input,button{
+    padding:10px;
+    border-radius:6px;
+    border:1px solid #ccc;
+}
+
+input{
+    flex:1;
+    min-width:150px;
+}
+
+button{
+    background:#0d6efd;
+    color:white;
+    border:none;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#0b5ed7;
+}
+
+.danger{
+    background:#dc3545;
+}
+
+.secondary{
+    background:#6c757d;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.stat{
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+
+.stat h2{
+    color:#0d6efd;
+    margin-top:10px;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+
+th,td{
+    border:1px solid #ddd;
+    padding:10px;
+    text-align:center;
+}
+
+th{
+    background:#0d6efd;
+    color:white;
+}
+
+#statement{
+    background:#fafafa;
+    padding:15px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    white-space:pre-wrap;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Bank Management System</h1>
+    <p>Create Accounts • Deposit • Withdraw •transfer. Reports</p>
+</div>
+
+<div class="container">
+
+<div class="stats">
+    <div class="stat">
+        <div>Total Customers</div>
+        <h2 id="customers">0</h2>
+    </div>
+
+    <div class="stat">
+        <div>Total Deposits</div>
+        <h2 id="deposits">0</h2>
+    </div>
+
+    <div class="stat">
+        <div>Total Balance</div>
+        <h2 id="balance">0</h2>
+    </div>
+</div>
+
+<div class="card">
+<h2>Create Account</h2>
+
+<div class="row">
+<input id="name" placeholder="Customer Name">
+<input id="phone" placeholder="Phone Number">
+<input id="email" placeholder="Email">
+<input id="address" placeholder="Address">
+<input id="amount" type="number" placeholder="Initial Deposit">
+<button onclick="createAccount()">Create Account</button>
+</div>
+</div>
+
+<div class="card">
+<h2>Search Account</h2>
+
+<div class="row">
+<input id="search" placeholder="Search by Name or Account Number" onkeyup="render()">
+</div>
+</div>
+
+<div class="card">
+<h2>Customer Accounts</h2>
+
+<table>
+<thead>
+<tr>
+<th>Account No</th>
+<th>Name</th>
+<th>Phone</th>
+<th>Balance</th>
+<th>Actions</th>
+</tr>
+</thead>
+
+<tbody id="tb"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>Transaction Report</h2>
+
+<div id="statement">
+Select an account to view statement.
+</div>
+</div>
+
+</div>
+
+<script>
+    function transferMoney(fromIndex){
+
+    let receiver =
+    prompt("Enter receiver account number");
+
+    if(!receiver) return;
+
+    let amount =
+    Number(prompt("Enter transfer amount"));
+
+    if(amount <= 0){
+        alert("Invalid amount");
+        return;
+    }
+
+    let toIndex =
+    accounts.findIndex(
+        a =>
+        a.accountNo.toLowerCase() ===
+        receiver.toLowerCase()
+    );
+
+    if(toIndex === -1){
+        alert("Receiver account not found");
+        return;
+    }
+
+    if(toIndex === fromIndex){
+        alert("Cannot transfer to same account");
+        return;
+    }
+
+    if(amount >
+       accounts[fromIndex].balance){
+        alert("Insufficient balance");
+        return;
+    }
+
+    // Deduct sender balance
+    accounts[fromIndex].balance -= amount;
+
+    accounts[fromIndex].history.push({
+        date: new Date().toLocaleString(),
+        type: "Transfer To " +
+              accounts[toIndex].accountNo,
+        amount: -amount,
+        balance:
+        accounts[fromIndex].balance
+    });
+
+    // Add receiver balance
+    accounts[toIndex].balance += amount;
+
+    accounts[toIndex].history.push({
+        date: new Date().toLocaleString(),
+        type: "Transfer From " +
+              accounts[fromIndex].accountNo,
+        amount: amount,
+        balance:
+        accounts[toIndex].balance
+    });
+
+    save();
+    render();
+    statement(fromIndex);
+
+    alert(
+        "Transfer successful!\n\n" +
+        "From: " +
+        accounts[fromIndex].accountNo +
+        "\nTo: " +
+        accounts[toIndex].accountNo +
+        "\nAmount: " +
+        amount
+    );
+}
+
+let accounts =
+JSON.parse(localStorage.getItem("bankAccounts")) || [];
+
+function save(){
+    localStorage.setItem(
+        "bankAccounts",
+        JSON.stringify(accounts)
+    );
+}
+
+function accountNumber(){
+    return "ACC" + Date.now();
+}
+
+function createAccount(){
+
+    let name =
+    document.getElementById("name").value;
+
+    let phone =
+    document.getElementById("phone").value;
+
+    let email =
+    document.getElementById("email").value;
+
+    let address =
+    document.getElementById("address").value;
+
+    let amount =
+    Number(document.getElementById("amount").value);
+
+    if(name===""){
+        alert("Enter customer name");
+        return;
+    }
+
+    let acc = {
+        accountNo: accountNumber(),
+        name:name,
+        phone:phone,
+        email:email,
+        address:address,
+        balance:amount || 0,
+        history:[]
+    };
+
+    acc.history.push({
+        date:new Date().toLocaleString(),
+        type:"Account Created",
+        amount:amount,
+        balance:acc.balance
+    });
+
+    accounts.push(acc);
+
+    save();
+    render();
+
+    document.getElementById("name").value="";
+    document.getElementById("phone").value="";
+    document.getElementById("email").value="";
+    document.getElementById("address").value="";
+    document.getElementById("amount").value="";
+}
+
+function deposit(i){
+
+    let money =
+    Number(prompt("Deposit Amount"));
+
+    if(money<=0) return;
+
+    accounts[i].balance += money;
+
+    accounts[i].history.push({
+        date:new Date().toLocaleString(),
+        type:"Deposit",
+        amount:money,
+        balance:accounts[i].balance
+    });
+
+    save();
+    render();
+    statement(i);
+}
+
+function withdraw(i){
+
+    let money =
+    Number(prompt("Withdrawal Amount"));
+
+    if(money<=0) return;
+
+    if(money > accounts[i].balance){
+        alert("Insufficient balance");
+        return;
+    }
+
+    accounts[i].balance -= money;
+
+    accounts[i].history.push({
+        date:new Date().toLocaleString(),
+        type:"Withdrawal",
+        amount:-money,
+        balance:accounts[i].balance
+    });
+
+    save();
+    render();
+    statement(i);
+}
+
+function editAccount(i){
+
+    let n =
+    prompt(
+        "Customer Name",
+        accounts[i].name
+    );
+
+    if(n){
+        accounts[i].name = n;
+        save();
+        render();
+    }
+}
+
+function deleteAccount(i){
+
+    if(confirm("Delete account?")){
+
+        accounts.splice(i,1);
+
+        save();
+        render();
+
+        document.getElementById(
+            "statement"
+        ).innerText =
+        "Select an account to view statement.";
+    }
+}
+
+function statement(i){
+
+    let a = accounts[i];
+
+    let txt =
+    "BANK ACCOUNT STATEMENT\n\n";
+
+    txt +=
+    "Customer : " +
+    a.name + "\n";
+
+    txt +=
+    "Account No : " +
+    a.accountNo + "\n";
+
+    txt +=
+    "Phone : " +
+    a.phone + "\n";
+
+    txt +=
+    "Email : " +
+    a.email + "\n";
+
+    txt +=
+    "Address : " +
+    a.address + "\n";
+
+    txt +=
+    "Current Balance : " +
+    a.balance + "\n\n";
+
+    txt +=
+    "TRANSACTION HISTORY\n";
+
+    txt +=
+    "--------------------------------\n";
+
+    a.history.forEach(h=>{
+
+        txt +=
+        h.date + "\n";
+
+        txt +=
+        h.type +
+        " : " +
+        h.amount + "\n";
+
+        txt +=
+        "Balance : " +
+        h.balance + "\n";
+
+        txt +=
+        "--------------------------------\n";
+    });
+
+    document.getElementById(
+        "statement"
+    ).innerText = txt;
+}
+
+function render(){
+
+    let q =
+    document.getElementById(
+        "search"
+    ).value.toLowerCase();
+
+    let tb =
+    document.getElementById("tb");
+
+    tb.innerHTML="";
+
+    let totalBalance=0;
+    let totalDeposits=0;
+
+    accounts.forEach((a,i)=>{
+
+        totalBalance += a.balance;
+
+        a.history.forEach(h=>{
+            if(h.amount>0){
+                totalDeposits += h.amount;
+            }
+        });
+
+        if(
+            a.name.toLowerCase().includes(q) ||
+            a.accountNo.toLowerCase().includes(q)
+        ){
+
+            tb.innerHTML += `
+            <tr>
+            <td>${a.accountNo}</td>
+            <td>${a.name}</td>
+            <td>${a.phone}</td>
+            <td>${a.balance}</td>
+            <td>
+            <button onclick="statement(${i})">
+            View
+            </button>
+
+            <button onclick="deposit(${i})">
+            Deposit
+            </button>
+
+            <button onclick="withdraw(${i})">
+            Withdraw
+            </button>
+            <button onclick="transferMoney(${i})">
+Transfer
+</button>
+
+            <button class="secondary"
+            onclick="editAccount(${i})">
+            Edit
+            </button>
+
+            <button class="danger"
+            onclick="deleteAccount(${i})">
+            Delete
+            </button>
+            </td>
+            </tr>
+            `;
+        }
+    });
+
+    document.getElementById(
+        "customers"
+    ).innerText =
+    accounts.length;
+
+    document.getElementById(
+        "deposits"
+    ).innerText =
+    totalDeposits;
+
+    document.getElementById(
+        "balance"
+    ).innerText =
+    totalBalance;
+}
+
+render();
+
+</script>
+
+</body>
+</html>
